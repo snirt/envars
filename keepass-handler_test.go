@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-var Handler DBHandler = &KeyPassHandler{}
+var Handler *KeyPassHandler = &KeyPassHandler{}
 // do not change the following 2 tests order!
 func TestCreateKeePassDB_ForNonExistFile(t *testing.T) {
-	// var Handler DBHandler = &KeyPassHandler{}
+	var Handler *DBHandler = GetKeyPassHandler()
 	Handler.CreateDB("my_test_db", "password", "test")
 	if (Handler.GetFile() == nil) {
 		t.Error("Handler.File should be populated after creaating DB")

@@ -4,7 +4,8 @@ import "os"
 
 type DBHandler interface {
 	ListDB()
-	CreateDB(name string, password string, folderPath string)
+	CreateDB(name string, masterPassword string, folderPath string)
 	GetFile() *os.File
 	DeleteDB()
+	AddRecord() error
 }
