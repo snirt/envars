@@ -1,35 +1,41 @@
 package main
 
 import (
-	"os"
+	"reflect"
 	"testing"
+
+	"github.com/tobischo/gokeepasslib/v3"
 )
 
-var Handler *KeyPassHandler = &KeyPassHandler{}
+var Handler *KeePassHandler = &KeePassHandler{}
+
 // do not change the following 2 tests order!
-func TestCreateKeePassDB_ForNonExistFile(t *testing.T) {
-	var Handler *DBHandler = GetKeyPassHandler()
-	Handler.CreateDB("my_test_db", "password", "test")
-	if (Handler.GetFile() == nil) {
-		t.Error("Handler.File should be populated after creaating DB")
-	}
-}
 
-func TestCreateKeePassDB_ForExistFile(t *testing.T) {
-	// var Handler DBHandler = &KeyPassHandler{}
-	Handler.CreateDB("my_test_db", "password", "test")
-	if (Handler.GetFile() == nil) {
-		t.Error("Handler.File should be populated after creaating DB")
+func TestNew(t *testing.T) {
+	tests := []struct {
+		name string
+		want *KeePassHandler
+	}{
+		{
+			name: "New Function",
+			want: &KeePassHandler{},
+		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := New()
+			entry := gokeepasslib.NewEntry()
+			entry.Values = append(entry.Values, mkValue("Title", "My GMail password"))
+			entry.Values = append(entry.Values, mkValue("UserName", "example@gmail.com"))
+			entry.Values = append(entry.Values, mkProtectedValue("Password", "hunter2"))
 
-	// clean test file
-	err := os.Remove("./test/my_test_db.kdbx")
-	if err != nil {
-		t.Fatal("couldn't remove test db file")
+			k.db.Content.Root.Groups[0].Entries = append(k.db.Content.Root.Groups[0].Entries, entry)
+			
+			k.lockDB()
+
+			if got := New(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("New() = %v, want %v", got, tt.want)
+			}
+		})
 	}
-}
-
-func TestDeleteDB(t *testing.T) {
-	Handler.CreateDB("my_test_db", "password", "test")
-	Handler.DeleteDB()
 }
