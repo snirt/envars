@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/tobischo/gokeepasslib/v3"
 	w "github.com/tobischo/gokeepasslib/v3/wrappers"
@@ -17,15 +18,11 @@ type KeePassHandler struct {
 
 var kph *KeePassHandler
 
-// func init() {
-// 	kph = New()
-// }
-
 // creates KeePassHandler object with unlocked db. MAKE SURE YOU CLOSE IT!
 func New() *KeePassHandler {
 	kph := new(KeePassHandler)
 
-	kph.filename = ".env.kdbmx"
+	kph.filename = ".env.kdbx"
 
 	file, err := os.Open(kph.filename)
 	if err != nil {
@@ -33,10 +30,10 @@ func New() *KeePassHandler {
 			kph.createDatabase()
 		}
 	} else {
+		defer file.Close()
+		kph.file = file
 		kph.unlockDB()
 	}
-	defer file.Close()
-	kph.file = file
 
 	return kph
 }
@@ -46,20 +43,31 @@ func GetKeyPassHandler() *KeePassHandler {
 }
 
 func (kph *KeePassHandler) unlockDB() {
-	filename := kph.filename
-	file, err := os.Open(filename)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	// filename := kph.filename
+	// file, err := os.Open(filename)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
 
-	db := kph.db
+	kph.db = gokeepasslib.NewDatabase()
 
 	// try to unlock the file with password input
-	for db.UnlockProtectedEntries() == nil {
-		password := ReadInput("Please enter your DB password")
-		db.Credentials = gokeepasslib.NewPasswordCredentials(password)
-		_ = gokeepasslib.NewDecoder(file).Decode(db)
+	for {
+		password := ReadPassword("Please enter your DB password")
+		kph.db.Credentials = gokeepasslib.NewPasswordCredentials(password)
+		err := gokeepasslib.NewDecoder(kph.file).Decode(kph.db)
+		if err != nil {
+			log.Fatal("could not decode the file")
+		}
+
+		err = kph.db.UnlockProtectedEntries()
+		if err != nil {
+			log.Print("could not open the db file")
+		} else {
+			log.Print("db file decrypted successfully")
+			break
+		}
 	}
 }
 
@@ -67,9 +75,9 @@ func (kph *KeePassHandler) lockDB() {
 	db := kph.db
 	db.LockProtectedEntries()
 
-	file, err := os.Open(kph.filename)
+	file, err := os.Create(kph.filename)
 	if err != nil {
-		panic(err)
+		log.Print(err)
 	}
 	defer func() {
 		file.Close()
@@ -80,7 +88,6 @@ func (kph *KeePassHandler) lockDB() {
 	if err := keepassEncoder.Encode(db); err != nil {
 		panic(err)
 	}
-
 }
 
 func (kph *KeePassHandler) createDatabase() {
@@ -93,8 +100,8 @@ func (kph *KeePassHandler) createDatabase() {
 
 	var pwd string
 	for {
-		pwd = ReadInput("Choose a password")
-		vpwd := ReadInput("Verify password")
+		pwd = ReadPassword("Choose a password")
+		vpwd := ReadPassword("Verify password")
 		if pwd == vpwd {
 			break
 		}
@@ -125,5 +132,28 @@ func mkProtectedValue(key string, value string) gokeepasslib.ValueData {
 	return gokeepasslib.ValueData{
 		Key:   key,
 		Value: gokeepasslib.V{Content: value, Protected: w.NewBoolWrapper(true)},
+	}
+}
+
+func (kph *KeePassHandler) AddRecords() {
+	db := kph.db
+	entries := &db.Content.Root.Groups[0].Entries
+
+	for {
+		input := ReadInput("add a new environment variable (KEY=VALUE). press enter to quit")
+		// exit from loop
+		if len(input) == 0 {
+			break
+		}
+
+		keyVal := strings.Split(input, "=")
+		if len(keyVal) != 2 {
+			log.Println("invalid input!")
+			continue
+		}
+
+		entry := gokeepasslib.NewEntry()
+		entry.Values = append(entry.Values, mkProtectedValue(keyVal[0], keyVal[1]))
+		*entries = append(*entries, entry)
 	}
 }

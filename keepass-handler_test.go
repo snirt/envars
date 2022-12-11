@@ -1,41 +1,47 @@
 package main
 
 import (
-	"reflect"
+	"os"
 	"testing"
-
-	"github.com/tobischo/gokeepasslib/v3"
 )
-
-var Handler *KeePassHandler = &KeePassHandler{}
 
 // do not change the following 2 tests order!
 
 func TestNew(t *testing.T) {
+	defer func() {
+		os.Remove(".env.kdbx")
+	}()
 	tests := []struct {
 		name string
 		want *KeePassHandler
 	}{
 		{
-			name: "New Function",
+			name: "New Function Write/Read",
 			want: &KeePassHandler{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k := New()
-			entry := gokeepasslib.NewEntry()
-			entry.Values = append(entry.Values, mkValue("Title", "My GMail password"))
-			entry.Values = append(entry.Values, mkValue("UserName", "example@gmail.com"))
-			entry.Values = append(entry.Values, mkProtectedValue("Password", "hunter2"))
-
-			k.db.Content.Root.Groups[0].Entries = append(k.db.Content.Root.Groups[0].Entries, entry)
-			
+			k.AddRecords()
 			k.lockDB()
 
-			if got := New(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("New() = %v, want %v", got, tt.want)
+			new_k := New()
+			entries := new_k.db.Content.Root.Groups[0].Entries
+
+			found := false
+			for _, entry := range entries {
+				for _, val := range entry.Values {
+					if val.Key == "my_key" {
+						found = true
+					}
+				}
+
 			}
+			if !found {
+				t.Error("could not get the record from the decrypted db")
+			}
+
 		})
 	}
 }

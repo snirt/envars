@@ -6,6 +6,9 @@ import (
 	"log"
 	"os"
 	"strings"
+	"syscall"
+
+	"golang.org/x/term"
 )
 
 func ReadInput(msg string) string {
@@ -17,4 +20,14 @@ func ReadInput(msg string) string {
 	}
     input = strings.TrimSuffix(input, "\n")
     return input
+}
+
+func ReadPassword(msg string) string {
+	fmt.Println(msg)
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+    if err != nil {
+		fmt.Println("Something is wrong with password")
+        return ""
+    }
+    return string(bytePassword)
 }
