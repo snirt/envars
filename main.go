@@ -20,7 +20,7 @@ func main() {
                 Name: "Create a new Database",
                 Aliases: []string{"c"},
                 Action: func(cCtx *cli.Context) error {
-                    CreateLocalDB(cCtx.Args().First())
+                    // CreateLocalDB(cCtx.Args().First())
                     return nil
                 },
             },
