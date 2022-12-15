@@ -1,16 +1,16 @@
 package main
 
 import (
-	"os"
+	// "os"
 	"testing"
 )
 
 // do not change the following 2 tests order!
 
 func TestNew(t *testing.T) {
-	defer func() {
-		os.Remove(".env.kdbx")
-	}()
+	// defer func() {
+	// 	os.Remove(".env.kdbx")
+	// }()
 	tests := []struct {
 		name string
 		want *KeePassHandler
@@ -23,7 +23,7 @@ func TestNew(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k := New()
-			k.AddRecords()
+			k.AddVariables()
 			k.lockDB()
 
 			new_k := New()

@@ -1,9 +1,14 @@
 package main
 
 const (
-	AppName = "envars"
-	DefaultConfigLocation = "/.local/share"
-	DefaultConfigType = "toml"
-	K_KEEPASS_DB_PATH = "KEEPASS_DB_PATH"
-	K_KEEP_DB_PASSWORD = "KEEPASS_DB_PATH"
+	AppName             = "envars"
+	ENVARS_PWD          = "ENVARS_PWD"
+	ENVARS_PWD_ERR_MSG  = "Please export db password as environment variable (export " + ENVARS_PWD + "='YOUR_DB_PASSWORD'"
+	GENERAL_ERROR		= "Ohhh... Something went wrong"
+	DB_FILE_NAME		= ".env.kdbx"
+)
+
+const (
+	COLOR_RED  Color = "\033[0;31m"
+	COLOR_NONE Color = "\033[0m"
 )
