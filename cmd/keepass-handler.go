@@ -1,8 +1,7 @@
-package main
+package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"runtime"
@@ -35,7 +34,11 @@ func New() *KeePassHandler {
 	} else {
 		defer file.Close()
 		kph.file = file
-		kph.unlockDB()
+		err := kph.unlockDB()
+		if err != nil {
+			Print(err.Error(), COLOR_RED)
+			os.Exit(1)
+		}
 	}
 	return kph
 }
@@ -44,45 +47,51 @@ func GetKeyPassHandler() *KeePassHandler {
 	return kph
 }
 
-func (kph *KeePassHandler) unlockDB() {
-	kph.db = gokeepasslib.NewDatabase()
+func (kph *KeePassHandler) unlockDB() error {
+	newDB := gokeepasslib.NewDatabase()
 
 	// try to unlock the file with password input
 	for {
 		if os.Getenv(ENVARS_PWD) != "" {
 			kph.password = os.Getenv(ENVARS_PWD)
+		} else if passwordArg != "" {
+			kph.password = passwordArg
 		} else {
-			Print(ENVARS_PWD_ERR_MSG, COLOR_RED)
-			return
+			return fmt.Errorf("%s", ERR_PWD_ERR_MSG)
 		}
-		kph.db.Credentials = gokeepasslib.NewPasswordCredentials(kph.password)
-		err := gokeepasslib.NewDecoder(kph.file).Decode(kph.db)
+		newDB.Credentials = gokeepasslib.NewPasswordCredentials(kph.password)
+		err := gokeepasslib.NewDecoder(kph.file).Decode(newDB)
 		if err != nil {
-			Print("could not decode the file", COLOR_RED)
+			return fmt.Errorf(ERR_DECODE)
 		}
 
-		err = kph.db.UnlockProtectedEntries()
+		err = newDB.UnlockProtectedEntries()
 		if err != nil {
-			Print("could not open the db file", COLOR_RED)
+			return fmt.Errorf(ERR_FILE_OPEN)
 		} else {
 			break
 		}
 	}
+	kph.db = newDB
+	return nil
 }
 
 func (kph *KeePassHandler) lockDB() {
 	db := kph.db
-	db.LockProtectedEntries()
+	err := db.LockProtectedEntries()
+	if err != nil {
+		Print(ERR_LOCK_DB, COLOR_RED)
+	}
 
 	file, err := os.Create(kph.filename)
 	if err != nil {
-		log.Print(err)
+		Print(err.Error(), COLOR_RED)
 	}
 	defer file.Close()
 
 	keepassEncoder := gokeepasslib.NewEncoder(file)
 	if err := keepassEncoder.Encode(db); err != nil {
-		panic(err)
+		Print(err.Error(), COLOR_RED)
 	}
 }
 
@@ -165,7 +174,7 @@ func (kph *KeePassHandler) AddVariables() {
 		if exists {
 			// ask if to update or not
 			input := ReadInput(keyVal[0] + " already exists. do you want to update this variable value? (y/N)")
-			if (strings.ToLower(input) == "y") {
+			if strings.ToLower(input) == "y" {
 				val.Values[0].Value.Content = keyVal[1]
 			}
 		} else {
@@ -224,9 +233,9 @@ func (kph *KeePassHandler) RemoveVariables(variables []string) {
 			}
 		}
 		if found {
-			Print(v + " removed", COLOR_RED)
+			Print(v+" removed", COLOR_RED)
 		} else {
-			Print(v + " not found", COLOR_RED)
+			Print(v+" not found", COLOR_RED)
 		}
 	}
 	db.Content.Root.Groups[0].Entries = entries
