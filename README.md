@@ -1,6 +1,6 @@
 # envars
 
-## this is a simple cli tool that stores your project's environement variables in encrypted KeePass database
+## this is a simple cli tool that stores your project's environement variables in encrypted KeePass database. THIS TOOL IS FOR DEVELOPMENT ONLY - DO NOT USE IT IN PRODUCTION!
 
 ## how to build the code?
 * install `go` on your machine
