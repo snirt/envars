@@ -1,5 +1,7 @@
 .lh
 .vscode
+.DS_Store
+bin
 .env.kdbx
 test
 tmp
