@@ -15,7 +15,7 @@
 
 `envars -h` will list the tool's commands 
 
-## example of usage
+## example
 * open your project's directory in terminal
 * run `envars` or `envars add`
 * now you should choose your database password 
