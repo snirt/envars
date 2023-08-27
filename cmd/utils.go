@@ -10,8 +10,15 @@ import (
 
 	"golang.org/x/term"
 )
+type Reader interface {
+	ReadInput(msg string) string
+	ReadPassword(msg string) string
+}
 
-func ReadInput(msg string) string {
+type ReaderImpl struct {
+	
+}
+func (r *ReaderImpl) ReadInput(msg string) string {
 	fmt.Println(msg)
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -22,7 +29,7 @@ func ReadInput(msg string) string {
 	return input
 }
 
-func ReadPassword(msg string) string {
+func (r *ReaderImpl) ReadPassword(msg string) string {
 	fmt.Println(msg)
 	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {

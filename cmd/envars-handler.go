@@ -11,102 +11,113 @@ import (
 	w "github.com/tobischo/gokeepasslib/v3/wrappers"
 )
 
-type KeePassHandler struct {
+type EnvarsInterface interface {
+	AddVariables(Reader)
+	RemoveVariables([]string)
+	ListVariables(bool)
+
+	createDatabase(Reader)
+	lockDB() error
+	unlockDB() error
+}
+type Envars struct {
 	filename string
 	db       *gokeepasslib.Database
 	file     *os.File
 	password string
 }
 
-var kph *KeePassHandler
+// var envars *Envars
 
-// creates KeePassHandler object with unlocked db. MAKE SURE YOU CLOSE IT!
-func New() *KeePassHandler {
-	kph := new(KeePassHandler)
+// creates Envars object with unlocked db. MAKE SURE YOU CLOSE IT!
+func New(reader Reader) EnvarsInterface {
+	envars := new(Envars)
+	envars.filename = DB_FILE_NAME
 
-	kph.filename = DB_FILE_NAME
-
-	file, err := os.Open(kph.filename)
+	file, err := os.Open(envars.filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			kph.createDatabase()
+			envars.createDatabase(reader)
+		} else {
+			Print(err.Error(), COLOR_RED)
 		}
 	} else {
 		defer file.Close()
-		kph.file = file
-		err := kph.unlockDB()
-		if err != nil {
+		envars.file = file
+		if err := envars.unlockDB(); err != nil {
 			Print(err.Error(), COLOR_RED)
-			os.Exit(1)
 		}
 	}
-	return kph
+	return envars
 }
 
-func GetKeyPassHandler() *KeePassHandler {
-	return kph
-}
-
-func (kph *KeePassHandler) unlockDB() error {
+// unlockDB is a function that attempts to unlock the database file using the provided password.
+//
+// It takes no parameters.
+// It returns an error.
+func (envars *Envars) unlockDB() error {
 	newDB := gokeepasslib.NewDatabase()
 
 	// try to unlock the file with password input
 	for {
 		if os.Getenv(ENVARS_PWD) != "" {
-			kph.password = os.Getenv(ENVARS_PWD)
-		} else if passwordArg != "" {
-			kph.password = passwordArg
+			envars.password = os.Getenv(ENVARS_PWD)
 		} else {
 			return fmt.Errorf("%s", ERR_PWD_ERR_MSG)
 		}
-		newDB.Credentials = gokeepasslib.NewPasswordCredentials(kph.password)
-		err := gokeepasslib.NewDecoder(kph.file).Decode(newDB)
-		if err != nil {
+		newDB.Credentials = gokeepasslib.NewPasswordCredentials(envars.password)
+		if err := gokeepasslib.NewDecoder(envars.file).Decode(newDB); err != nil {
 			return fmt.Errorf(ERR_DECODE)
 		}
-
-		err = newDB.UnlockProtectedEntries()
-		if err != nil {
+		if err := newDB.UnlockProtectedEntries(); err != nil {
 			return fmt.Errorf(ERR_FILE_OPEN)
 		} else {
 			break
 		}
 	}
-	kph.db = newDB
+	envars.db = newDB
 	return nil
 }
 
-func (kph *KeePassHandler) lockDB() {
-	db := kph.db
+// lockDB locks the database, creates a file, and encodes the database into the file.
+//
+// No parameters.
+// No return values.
+func (envars *Envars) lockDB() error {
+	db := envars.db
 	err := db.LockProtectedEntries()
 	if err != nil {
 		Print(ERR_LOCK_DB, COLOR_RED)
+		return fmt.Errorf("could not lock db")
 	}
 
-	file, err := os.Create(kph.filename)
+	file, err := os.Create(envars.filename)
 	if err != nil {
 		Print(err.Error(), COLOR_RED)
+		return fmt.Errorf("could not open the db file to save the data")
 	}
 	defer file.Close()
 
 	keepassEncoder := gokeepasslib.NewEncoder(file)
 	if err := keepassEncoder.Encode(db); err != nil {
 		Print(err.Error(), COLOR_RED)
+		return fmt.Errorf("could not encode the db")
 	}
+	return nil
 }
 
-func (kph *KeePassHandler) createDatabase() {
+func (envars *Envars) createDatabase(reader Reader) {
 	fmt.Println("Creating a new database...")
 	var pwd string
 	for {
-		pwd = ReadPassword("Choose a password")
-		vpwd := ReadPassword("Verify password")
+		pwd = reader.ReadPassword("Choose a password")
+		vpwd := reader.ReadPassword("Verify password")
 		if pwd == vpwd {
 			break
 		}
 	}
 
-	file, err := os.Create(kph.filename)
+	file, err := os.Create(envars.filename)
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +128,7 @@ func (kph *KeePassHandler) createDatabase() {
 	rootGroup.Name = "root group"
 
 	// create db to contain the root group
-	kph.db = &gokeepasslib.Database{
+	envars.db = &gokeepasslib.Database{
 		Header:      gokeepasslib.NewHeader(),
 		Credentials: gokeepasslib.NewPasswordCredentials(pwd),
 		Content: &gokeepasslib.DBContent{
@@ -145,8 +156,8 @@ func isValidEnvVar(s string) bool {
 	return pattern.MatchString(s)
 }
 
-func (kph *KeePassHandler) AddVariables() {
-	db := kph.db
+func (envars *Envars) AddVariables(reader Reader) {
+	db := envars.db
 	entries := db.Content.Root.Groups[0].Entries
 
 	// init the variables map
@@ -156,7 +167,7 @@ func (kph *KeePassHandler) AddVariables() {
 	}
 
 	for {
-		input := ReadInput("add a new environment variable (KEY=VALUE). press enter to quit")
+		input := reader.ReadInput("add a new environment variable (KEY=VALUE). press enter to quit")
 		// exit from loop
 		if len(input) == 0 {
 			break
@@ -173,7 +184,7 @@ func (kph *KeePassHandler) AddVariables() {
 		val, exists := variablesMap[keyVal[0]]
 		if exists {
 			// ask if to update or not
-			input := ReadInput(keyVal[0] + " already exists. do you want to update this variable value? (y/N)")
+			input := reader.ReadInput(keyVal[0] + " already exists. do you want to update this variable value? (y/N)")
 			if strings.ToLower(input) == "y" {
 				val.Values[0].Value.Content = keyVal[1]
 			}
@@ -194,11 +205,11 @@ func (kph *KeePassHandler) AddVariables() {
 
 }
 
-func (kph *KeePassHandler) KeepPwdInSession() {
-	fmt.Println(kph.password)
+func (envars *Envars) KeepPwdInSession() {
+	fmt.Println(envars.password)
 }
 
-func (kph *KeePassHandler) ListVariables(exportable bool) {
+func (envars *Envars) ListVariables(exportable bool) {
 	var prefix string
 	if exportable {
 		if runtime.GOOS == "windows" {
@@ -208,7 +219,7 @@ func (kph *KeePassHandler) ListVariables(exportable bool) {
 		}
 	}
 
-	db := kph.db
+	db := envars.db
 	entries := &db.Content.Root.Groups[0].Entries
 	for _, enrty := range *entries {
 		val := enrty.Values[0]
@@ -216,8 +227,8 @@ func (kph *KeePassHandler) ListVariables(exportable bool) {
 	}
 }
 
-func (kph *KeePassHandler) RemoveVariables(variables []string) {
-	db := kph.db
+func (envars *Envars) RemoveVariables(variables []string) {
+	db := envars.db
 	entries := db.Content.Root.Groups[0].Entries
 
 	for _, v := range variables {

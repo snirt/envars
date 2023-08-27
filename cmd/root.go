@@ -9,52 +9,54 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
-var envars *KeePassHandler
-var passwordArg string
+var envars EnvarsInterface
+// var passwordArg string
 var exportArg = false
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "envars",
 	Short: "manage your environment variables",
-	Long: `This CLI tool help you to keep your environment variable safe and encrypted on your project's directory`,
-	Run: func(cmd *cobra.Command, args []string) { 
-		envars = New()
+	Long:  `This CLI tool help you to keep your environment variable safe and encrypted on your project's directory`,
+	Run: func(cmd *cobra.Command, args []string) {
+		envars = New(&ReaderImpl{})
 		defer envars.lockDB()
-		envars.ListVariables(false);
+		envars.ListVariables(false)
 	},
 }
 
 var addCommand = &cobra.Command{
-	Use: "add",
+	Use:   "add",
 	Short: "add and modify variables",
-	Long: "This command adds variables to the database, if the variable already exists, it can be modified",
+	Long:  "This command adds variables to the database, if the variable already exists, it can be modified",
 	Run: func(cmd *cobra.Command, args []string) {
-		envars = New()
+		reader := &ReaderImpl{}
+		envars = New(reader)
 		defer envars.lockDB()
-		envars.AddVariables()
+		envars.AddVariables(reader)
 	},
 }
 
 var removeCommand = &cobra.Command{
-	Use: "remove",
+	Use:   "remove",
 	Short: "remove variables from database",
-	Long: "This commande removes variables from the database",
+	Long:  "This commande removes variables from the database",
 	Run: func(cmd *cobra.Command, args []string) {
-		envars = New()
+		reader := &ReaderImpl{}
+		envars = New(reader)
 		defer envars.lockDB()
 		envars.RemoveVariables(args)
 	},
 }
 
 var listCommand = &cobra.Command{
-	Use: "list",
+	Use:   "list",
 	Short: "List variables",
 	Long: `This command list the variables from the database with 'export' prefix. 
 		the command 'eval $(envars list -e)' will export the  variables to the session`,
 	Run: func(cmd *cobra.Command, args []string) {
-		envars = New()
+		reader := &ReaderImpl{}
+		envars = New(reader)
 		defer envars.lockDB()
 		envars.ListVariables(exportArg)
 	},
@@ -69,7 +71,6 @@ func Execute() {
 	}
 }
 
-
 func init() {
 	rootCmd.AddCommand(addCommand)
 	rootCmd.AddCommand(removeCommand)
@@ -77,9 +78,5 @@ func init() {
 
 	// rootCmd.PersistentFlags().StringVarP(&passwordArg, "password", "p", "", "envar -p [your_db_password] [COMMAND]")
 	listCommand.Flags().BoolVarP(&exportArg, "export", "e", false, "Add export prefix to list")
-	
-	
-	
+
 }
-
-
